@@ -194,12 +194,25 @@ impl TryFrom<&compact_formats::CompactOrchardAction> for orchard::note_encryptio
     type Error = ();
 
     fn try_from(value: &compact_formats::CompactOrchardAction) -> Result<Self, Self::Error> {
-        Ok(orchard::note_encryption::CompactAction::from_parts(
-            value.nf()?,
-            value.cmx()?,
-            value.ephemeral_key()?,
-            value.ciphertext[..].try_into().map_err(|_| ())?,
-        ))
+        // If tag is present and has the correct length, include it
+        if value.tag.len() == 16 {
+            let tag: [u8; 16] = value.tag[..].try_into().map_err(|_| ())?;
+            Ok(orchard::note_encryption::CompactAction::from_parts_with_tag(
+                value.nf()?,
+                value.cmx()?,
+                value.ephemeral_key()?,
+                value.ciphertext[..].try_into().map_err(|_| ())?,
+                tag,
+            ))
+        } else {
+            // No tag or invalid tag length - use legacy from_parts
+            Ok(orchard::note_encryption::CompactAction::from_parts(
+                value.nf()?,
+                value.cmx()?,
+                value.ephemeral_key()?,
+                value.ciphertext[..].try_into().map_err(|_| ())?,
+            ))
+        }
     }
 }
 
@@ -258,6 +271,7 @@ impl<SpendAuth> From<&orchard::Action<SpendAuth>> for compact_formats::CompactOr
             cmx: action.cmx().to_bytes().to_vec(),
             ephemeral_key: action.encrypted_note().epk_bytes.to_vec(),
             ciphertext: action.encrypted_note().enc_ciphertext[..COMPACT_NOTE_SIZE].to_vec(),
+            tag: action.tag().to_vec(),
         }
     }
 }
