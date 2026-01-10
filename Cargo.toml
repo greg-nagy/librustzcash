@@ -224,3 +224,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(zcash_unstable, values("zfuture", "nu7"))',
   'cfg(live_network_tests)',
 ] }
+
+# Local patches for protocol development
+[patch.crates-io]
+orchard = { path = "../orchard" }

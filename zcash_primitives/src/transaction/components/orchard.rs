@@ -153,12 +153,20 @@ pub fn read_note_ciphertext<R: Read>(mut reader: R) -> io::Result<TransmittedNot
     Ok(tnc)
 }
 
+/// Reads the 16-byte detection tag from an action.
+pub fn read_tag<R: Read>(mut reader: R) -> io::Result<[u8; 16]> {
+    let mut tag = [0u8; 16];
+    reader.read_exact(&mut tag)?;
+    Ok(tag)
+}
+
 pub fn read_action_without_auth<R: Read>(mut reader: R) -> io::Result<Action<()>> {
     let cv_net = read_value_commitment(&mut reader)?;
     let nf_old = read_nullifier(&mut reader)?;
     let rk = read_verification_key(&mut reader)?;
     let cmx = read_cmx(&mut reader)?;
     let encrypted_note = read_note_ciphertext(&mut reader)?;
+    let tag = read_tag(&mut reader)?;
 
     Ok(Action::from_parts(
         nf_old,
@@ -167,6 +175,7 @@ pub fn read_action_without_auth<R: Read>(mut reader: R) -> io::Result<Action<()>
         encrypted_note,
         cv_net,
         (),
+        tag,
     ))
 }
 
@@ -259,6 +268,11 @@ pub fn write_note_ciphertext<W: Write>(
     writer.write_all(&nc.out_ciphertext)
 }
 
+/// Writes the 16-byte detection tag from an action.
+pub fn write_tag<W: Write>(mut writer: W, tag: &[u8; 16]) -> io::Result<()> {
+    writer.write_all(tag)
+}
+
 pub fn write_action_without_auth<W: Write>(
     mut writer: W,
     act: &Action<<Authorized as Authorization>::SpendAuth>,
@@ -268,6 +282,7 @@ pub fn write_action_without_auth<W: Write>(
     write_verification_key(&mut writer, act.rk())?;
     write_cmx(&mut writer, act.cmx())?;
     write_note_ciphertext(&mut writer, act.encrypted_note())?;
+    write_tag(&mut writer, act.tag())?;
     Ok(())
 }
 
