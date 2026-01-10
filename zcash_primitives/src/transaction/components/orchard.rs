@@ -160,7 +160,30 @@ pub fn read_tag<R: Read>(mut reader: R) -> io::Result<[u8; 16]> {
     Ok(tag)
 }
 
+/// Read an action from v5 format (without detection tag - NU5).
 pub fn read_action_without_auth<R: Read>(mut reader: R) -> io::Result<Action<()>> {
+    let cv_net = read_value_commitment(&mut reader)?;
+    let nf_old = read_nullifier(&mut reader)?;
+    let rk = read_verification_key(&mut reader)?;
+    let cmx = read_cmx(&mut reader)?;
+    let encrypted_note = read_note_ciphertext(&mut reader)?;
+    // No tag in v5 format - use zeros as placeholder
+    let tag = [0u8; 16];
+
+    Ok(Action::from_parts(
+        nf_old,
+        rk,
+        cmx,
+        encrypted_note,
+        cv_net,
+        (),
+        tag,
+    ))
+}
+
+/// Read an action from v6+ format (with detection tag - future network upgrade).
+#[cfg(any(zcash_unstable = "zfuture", zcash_unstable = "nu7"))]
+pub fn read_action_without_auth_v6<R: Read>(mut reader: R) -> io::Result<Action<()>> {
     let cv_net = read_value_commitment(&mut reader)?;
     let nf_old = read_nullifier(&mut reader)?;
     let rk = read_verification_key(&mut reader)?;
@@ -273,7 +296,23 @@ pub fn write_tag<W: Write>(mut writer: W, tag: &[u8; 16]) -> io::Result<()> {
     writer.write_all(tag)
 }
 
+/// Write an action in v5 format (without detection tag - NU5).
 pub fn write_action_without_auth<W: Write>(
+    mut writer: W,
+    act: &Action<<Authorized as Authorization>::SpendAuth>,
+) -> io::Result<()> {
+    write_value_commitment(&mut writer, act.cv_net())?;
+    write_nullifier(&mut writer, act.nullifier())?;
+    write_verification_key(&mut writer, act.rk())?;
+    write_cmx(&mut writer, act.cmx())?;
+    write_note_ciphertext(&mut writer, act.encrypted_note())?;
+    // No tag in v5 format
+    Ok(())
+}
+
+/// Write an action in v6+ format (with detection tag - future network upgrade).
+#[cfg(any(zcash_unstable = "zfuture", zcash_unstable = "nu7"))]
+pub fn write_action_without_auth_v6<W: Write>(
     mut writer: W,
     act: &Action<<Authorized as Authorization>::SpendAuth>,
 ) -> io::Result<()> {
