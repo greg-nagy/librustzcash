@@ -1,4 +1,21 @@
 //! Tools for scanning a compact representation of the Zcash block chain.
+//!
+//! # Tag-based Scanning (PIR)
+//!
+//! This module supports tag-based Private Information Retrieval (PIR) for Orchard
+//! actions. When enabled, actions with detection tags can be pre-filtered before
+//! expensive trial decryption, significantly reducing scanning costs for mobile wallets.
+//!
+//! ## Usage
+//!
+//! To enable tag-based scanning:
+//!
+//! 1. Generate a tagging key from the wallet's incoming viewing key
+//! 2. Create tags for expected payment indices using [`orchard::TagGenerator`]
+//! 3. Use [`matches_tag`] to pre-filter compact actions before decryption
+//!
+//! Actions from transactions created before tag field activation will have empty tags
+//! and should fall back to traditional trial decryption.
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
@@ -37,6 +54,49 @@ use orchard::{
 
 #[cfg(not(feature = "orchard"))]
 use std::marker::PhantomData;
+
+/// Checks if a compact Orchard action's tag matches any expected tag.
+///
+/// This function enables PIR-based pre-filtering of Orchard actions before
+/// expensive trial decryption. Returns `true` if:
+/// - The action has a tag and it matches one of the expected tags, OR
+/// - The action has no tag (pre-activation transaction, needs trial decryption)
+///
+/// Returns `false` only if the action has a tag that doesn't match any expected tag,
+/// meaning trial decryption can be skipped for this action.
+///
+/// # Arguments
+///
+/// * `action` - The compact action to check
+/// * `expected_tags` - Set of tags the wallet expects to receive (from TagGenerator)
+///
+/// # Example
+///
+/// ```ignore
+/// use orchard::TaggingKey;
+/// use std::collections::HashSet;
+///
+/// let tag_key = [0u8; 32]; // derived from IVK
+/// let tagging_key = TaggingKey::from_bytes(tag_key);
+///
+/// // Generate expected tags for indices 0-100
+/// let expected: HashSet<[u8; 16]> = (0..100).map(|i| tagging_key.generate_tag(i)).collect();
+///
+/// // Pre-filter actions
+/// for action in compact_actions {
+///     if matches_tag(&action, &expected) {
+///         // This action might be for us, try decryption
+///     }
+/// }
+/// ```
+#[cfg(feature = "orchard")]
+pub fn matches_tag(action: &CompactAction, expected_tags: &HashSet<[u8; 16]>) -> bool {
+    match action.tag() {
+        Some(tag) => expected_tags.contains(tag),
+        // No tag means pre-activation action, must try decryption
+        None => true,
+    }
+}
 
 /// A key that can be used to perform trial decryption and nullifier
 /// computation for a [`CompactSaplingOutput`] or [`CompactOrchardAction`].
