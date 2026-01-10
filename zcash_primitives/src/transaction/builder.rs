@@ -476,6 +476,32 @@ impl<P: consensus::Parameters, U: sapling::builder::ProverProgress> Builder<'_, 
             .map_err(Error::OrchardRecipient)
     }
 
+    /// Adds an Orchard recipient to the transaction with a detection tag.
+    ///
+    /// The tag should be generated using an `orchard::tag::TaggingKey` for PIR-based
+    /// scanning. This enables recipients to efficiently detect relevant transactions
+    /// without trial decryption.
+    pub fn add_orchard_output_with_tag<FE>(
+        &mut self,
+        ovk: Option<orchard::keys::OutgoingViewingKey>,
+        recipient: orchard::Address,
+        value: u64,
+        memo: MemoBytes,
+        tag: [u8; 16],
+    ) -> Result<(), Error<FE>> {
+        self.orchard_builder
+            .as_mut()
+            .ok_or(Error::OrchardBuilderNotAvailable)?
+            .add_output_with_tag(
+                ovk,
+                recipient,
+                orchard::value::NoteValue::from_raw(value),
+                memo.into_bytes(),
+                tag,
+            )
+            .map_err(Error::OrchardRecipient)
+    }
+
     /// Adds a Sapling note to be spent in this transaction.
     ///
     /// Returns an error if the given Merkle path does not have the same anchor as the
