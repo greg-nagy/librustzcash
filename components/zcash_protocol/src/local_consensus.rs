@@ -17,6 +17,8 @@ use crate::consensus::{BlockHeight, NetworkType, NetworkUpgrade, Parameters};
 ///     nuparams=e9ff75a6:1 # Canopy
 ///     nuparams=c2d6d0b4:1 # NU5
 ///     nuparams=c8e71055:1 # NU6
+///     nuparams=4dec4df0:1 # NU6.1
+///     nuparams=ffffffff:1 # NU7 (requires --cfg zcash_unstable="nu7")
 ///     ```
 ///     would use the following `LocalNetwork` struct
 ///     ```
@@ -28,6 +30,9 @@ use crate::consensus::{BlockHeight, NetworkType, NetworkUpgrade, Parameters};
 ///         canopy: Some(BlockHeight::from_u32(1)),
 ///         nu5: Some(BlockHeight::from_u32(1)),
 ///         nu6: Some(BlockHeight::from_u32(1)),
+///         nu6_1: Some(BlockHeight::from_u32(1)),
+///         #[cfg(zcash_unstable = "nu7")]
+///         nu7: Some(BlockHeight::from_u32(1)),  // Enable NU7 from block 1
 ///     };
 ///     ```
 ///     
