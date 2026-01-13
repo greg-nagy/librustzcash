@@ -171,20 +171,18 @@ impl TransparentInputInfo {
     ///
     /// [ZIP 317]: https://zips.z.cash/zip-0317#rationale-for-the-chosen-parameters
     pub fn serialized_len(&self) -> Option<usize> {
-        // PushData(secp256k1::ecdsa::serialized_signature::MAX_LEN + 1)
-        let fake_sig = pv::push_value(&[0; 72 + 1]).expect("short enough");
-
-        let script_len = match &self.kind {
+        match &self.kind {
             InputKind::P2pkh { .. } => {
-                // P2PKH `script_sig` format is:
-                // - PushData(signature || sigtype)
-                // - PushData(pubkey)
-                let fake_pubkey = pv::push_value(&[0; secp256k1::constants::PUBLIC_KEY_SIZE])
-                    .expect("short enough");
-                Some(script::Component(vec![fake_sig, fake_pubkey]).byte_len())
+                // Use the ZIP-317 standard P2PKH input size (150 bytes) for consistency
+                // with fee calculation in the proposal. The actual serialized size is
+                // slightly smaller (~149 bytes), but ZIP-317 uses 150 as an upper bound.
+                Some(150)
             }
             InputKind::P2sh { redeem_script } => {
-                redeem_script
+                // PushData(secp256k1::ecdsa::serialized_signature::MAX_LEN + 1)
+                let fake_sig = pv::push_value(&[0; 72 + 1]).expect("short enough");
+
+                let script_len = redeem_script
                     .refine()
                     .ok()
                     .as_ref()
@@ -207,14 +205,14 @@ impl TransparentInputInfo {
                             )
                         }
                         _ => None,
-                    })
-            }
-        }?;
+                    })?;
 
-        let prevout_len = 32 + 4;
-        let script_sig_len = CompactSize::serialized_size(script_len) + script_len;
-        let sequence_len = 4;
-        Some(prevout_len + script_sig_len + sequence_len)
+                let prevout_len = 32 + 4;
+                let script_sig_len = CompactSize::serialized_size(script_len) + script_len;
+                let sequence_len = 4;
+                Some(prevout_len + script_sig_len + sequence_len)
+            }
+        }
     }
 }
 
